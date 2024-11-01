@@ -25,10 +25,27 @@ def live_in_Moscow(text: str) -> list[str]:
 
     """ищем анкеты, которые подходят под наши условия"""
 
-    pattern =  r"\bМосква\b"
-    return len(re.findall(pattern, text))
+    pattern = r'\d+\)\n'
+    anketa = re.split(pattern, text, maxsplit=0)
+    result = []
+    for question in anketa:
+        if "Москва" in question:
+            result.append(question)
+        else:
+            continue
+    return result
+    
+def print_live_in_Moscow(text_sort: list[str]) -> None:
+    """вывожу анкеты"""
+    for question in text_sort:
+        print(question)
+    return None
 
-if __name__ == "__main__":
+def main():
     filename = get_filename()
     text = read_filename(filename)
-    print(f"Количество людей, которые проживают в Москве: {live_in_Moscow(text)}")
+
+    print_live_in_Moscow(live_in_Moscow(text))
+
+if __name__ == "__main__":
+    main()

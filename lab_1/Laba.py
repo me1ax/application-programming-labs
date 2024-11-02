@@ -1,51 +1,38 @@
 import argparse
 import re
 
-def get_filename() -> str:
-    """
-    Получаем имя файлы, который был передан в качестве строки.
+def parse_arguments():
+    """Получаем имя файла, который был передан в качестве строки."""
+    parser = argparse.ArgumentParser(description="Find people living in Moscow.")
+    parser.add_argument('filename', type=str, help='Name of the file to read')
+    return parser.parse_args()
 
-    Returns:
-        str: Имя файла.
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('filename', type=str, help='your name file')
-    args = parser.parse_args()
-    return args.filename
+def read_file(filename):
+    """открываем файл"""
+    with open(filename, 'r', encoding='utf-8') as file:
+        return file.read()
 
-def read_filename(filename: str) -> str:
-
-    """"открываем файл"""
-
-    with open(filename, "r", encoding="UTF-8") as file:
-        text = file.read()
-    return text
-
-def live_in_Moscow(text: str) -> list[str]:
-
+def find_people_in_moscow(data):
     """ищем анкеты, которые подходят под наши условия"""
+    pattern = r'Фамилия: (.+?)\nИмя: (.+?)\nПол: (.+?)\nДата рождения: (.+?)\nНомер телефона: (.+?)\nГород: Москва'
+    matches = re.findall(pattern, data)
+    return matches
 
-    pattern = r'\d+\)\n'
-    anketa = re.split(pattern, text, maxsplit=0)
-    result = []
-    for question in anketa:
-        if "Москва" in question:
-            result.append(question)
-        else:
-            continue
-    return result
-    
-def print_live_in_Moscow(text_sort: list[str]) -> None:
-    """вывожу анкеты"""
-    for question in text_sort:
-        print(question)
-    return None
+def print_results(people):
+    """Выводим результат"""
+    for surname, name, gender, birth_date, phone in people:
+        print(f"Фамилия: {surname}\n Имя: {name}\n Пол: {gender}\n Дата рождения: {birth_date}\n Номер телефона: {phone}\n")
 
 def main():
-    filename = get_filename()
-    text = read_filename(filename)
-
-    print_live_in_Moscow(live_in_Moscow(text))
+    args = parse_arguments()
+    try:
+        data = read_file(args.filename)
+        people_in_moscow = find_people_in_moscow(data)
+        print_results(people_in_moscow)
+    except FileNotFoundError:
+        print(f"Файл {args.filename} не найден.")
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
 
 if __name__ == "__main__":
     main()

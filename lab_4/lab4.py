@@ -1,59 +1,86 @@
+import argparse
 import cv2
-import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import pandas as pd
 import sys
 
-def create_dataframe(image_paths):
-    data = []
-
-    for path in image_paths:
-        img = cv2.imread(path)
-        if img is not None:
-            height, width, depth = img.shape
-            data.append([path, os.path.abspath(path), height, width, depth])
-        else:
-            print(f"Error loading image: {path}")
-
-    df = pd.DataFrame(data, columns=["File Name", "Absolute Path", "Height", "Width", "Depth"])
+def create_dataframe(data_path: str) -> pd.DataFrame:
+    df = pd.read_csv(data_path)
+    df.columns=['absolute_path','real_path']
     return df
 
-def filter_dataframe(df, max_height, max_width):
-    filtered_df = df[(df["Height"] <= max_height) & (df["Width"] <= max_width)]
-    return filtered_df
+def add_image_info(df: pd.DataFrame) -> pd.DataFrame:
 
-def main(image_folder, max_height, max_width):
-    image_paths = [os.path.join(image_folder, img) for img in os.listdir(image_folder) if img.endswith(('jpg', 'jpeg', 'png'))]
+    heights = []
+    widths = []
+    depths = []
 
-    df = create_dataframe(image_paths)
+    for path in df['absolute_path']:
+        img = cv2.imread(path)
+        if img is None:
+            print(f"Failed to load image: {path}. Check the path!")
+            heights.append(None)
+            widths.append(None)
+            depths.append(None)
+        else:
+            heights.append(img.shape[0])
+            widths.append(img.shape[1])
+            depths.append(img.shape[2])
 
-    # Рассчитать статистику по размеру изображения
-    print(df[["Height", "Width", "Depth"]].describe())
+    df['height'] = heights
+    df['width'] = widths
+    df['depth'] = depths
+    return df
 
-    # Добавить столбец области
-    df['Area'] = df['Height'] * df['Width']
+def calculate_statistics(df: pd.DataFrame) -> pd.DataFrame:
+    stats = df[['height', 'width', 'depth']].describe()
+    return stats
 
-    # Сортировка по площади
-    df.sort_values(by="Area", inplace=True)
+def filter_images(df: pd.DataFrame, max_width: int, max_height: int) -> pd.DataFrame:
+    return df[
+        (df['height'] <= max_height) & 
+        (df['width'] <= max_width)
+    ]
 
-    # Фильтровать DataFrame
-    filtered_df = filter_dataframe(df, max_height, max_width)
+def add_image_area(df: pd.DataFrame) -> pd.DataFrame:
+    df['area'] = df['height'] * df['width']
+    df = df.sort_values(by='area').reset_index(drop=True)
+    return df
 
-    # Гистограмма
+def plot_area_distribution(df: pd.DataFrame) -> None:
     plt.figure(figsize=(10, 6))
-    plt.hist(df['Area'], bins=20, edgecolor='black')
+    plt.hist(df['area'], bins=20, edgecolor='black')
     plt.title("Распределение площадей изображений")
     plt.xlabel("Площадь изображения (пиксели)")
     plt.ylabel("Количество изображений")
     plt.show()
 
+def main(data_path: str, max_width: int, max_height: int) -> None:
+    df = create_dataframe(data_path)
+    df = add_image_info(df)
+    stats = calculate_statistics(df)
+    filtered_df = filter_images(df, max_width, max_height)
+    print("\nФильтрованные данные по заданным диапазонам размеров:")
+    print(filtered_df)
+    df = add_image_area(df)
+    plot_area_distribution(df)
+    print("\nСтатистика по высоте, ширине и глубине изображений:")
+    print(stats)
+    print("\nИтоговый DataFrame:")
+    print(df.head(len(df)))
+
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python script.py <image_folder> <max_height> <max_width>")
+    parser = argparse.ArgumentParser(description="Анализ изображений и их фильтрация по диапазону размеров.")
+    parser.add_argument("--data_path", type=str, required=True, help="Путь к файлу csv")
+    parser.add_argument("--max_width", type=int,help="Максимальная ширина изображения")
+    parser.add_argument("--max_height", type=int, help="Максимальная высота изображения")
+
+    try:
+        args = parser.parse_args()
+    except argparse.ArgumentError as e:
+        print(f"Ошибка в аргументах: {e}")
+        parser.print_help()
         sys.exit(1)
 
-    image_folder = sys.argv[1]
-    max_height = int(sys.argv[2])
-    max_width = int(sys.argv[3])
-
-    main(image_folder, max_height, max_width)
+    main(args.data_path, args.max_width, args.max_height)
